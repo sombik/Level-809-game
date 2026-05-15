@@ -1,0 +1,1065 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <title>Серая Гладь — Выживание</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; user-select: none; }
+        body {
+            background: #0a0c10;
+            font-family: 'Courier New', monospace;
+            color: #b0b7bc;
+            line-height: 1.5;
+            padding: 1rem;
+            min-height: 100vh;
+            overflow: hidden;
+        }
+        #three-bg {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            z-index: -1;
+        }
+        .game-container {
+            max-width: 500px;
+            margin: 0 auto;
+            background: rgba(18, 20, 25, 0.88);
+            backdrop-filter: blur(6px);
+            border-radius: 28px;
+            padding: 1.5rem;
+            box-shadow: 0 20px 40px -10px rgba(0,0,0,0.8);
+            border: 1px solid #3a3a3a;
+            position: relative;
+            z-index: 1;
+        }
+        .header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 1.2rem;
+            padding-bottom: 0.8rem;
+            border-bottom: 2px dashed #4a3a2a;
+        }
+        .header h1 {
+            font-size: 1.6rem;
+            color: #ececec;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        .header h1 span { color: #7a9ec0; }
+        .win-badge {
+            background: #1a1a1a;
+            border: 1px solid #6e5a3a;
+            border-radius: 30px;
+            padding: 4px 14px;
+            font-size: 0.8rem;
+            color: #e0c080;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+        .stats-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 10px;
+            margin-bottom: 1rem;
+        }
+        .stat-card {
+            background: #12161c;
+            border-radius: 16px;
+            padding: 10px 12px;
+            border: 1px solid #2a2a2a;
+            text-align: center;
+        }
+        .stat-card .label { font-size: 0.7rem; color: #7a7a7a; text-transform: uppercase; }
+        .stat-card .value { font-size: 1.4rem; color: #e0e0e0; font-weight: bold; }
+        .stat-card .value.good { color: #7eb07e; }
+        .stat-card .value.bad { color: #d07a6a; }
+        
+        .resources {
+            background: #0e1117;
+            border-radius: 18px;
+            padding: 1rem;
+            margin-bottom: 1rem;
+            border: 1px solid #2a2a2a;
+        }
+        .res-row {
+            display: flex;
+            justify-content: space-between;
+            padding: 4px 0;
+            color: #c8c8c8;
+            font-size: 0.95rem;
+        }
+        .res-row .res-value { font-weight: bold; color: #e8e8e8; }
+        
+        .hp-container {
+            background: #1a1212;
+            border-radius: 16px;
+            padding: 6px 12px;
+            margin-bottom: 1rem;
+            border: 1px solid #3a1a1a;
+        }
+        .hp-label { display: flex; justify-content: space-between; font-size: 0.8rem; color: #aa7a7a; margin-bottom: 2px; }
+        .hp-bar-bg {
+            background: #2a1a1a;
+            border-radius: 12px;
+            height: 14px;
+            overflow: hidden;
+        }
+        .hp-bar { width: 100%; height: 100%; background: #c33; transition: width 0.3s; border-radius: 12px; }
+        
+        .action-area {
+            background: #0e1117;
+            border-radius: 18px;
+            padding: 0;
+            margin-bottom: 1rem;
+            border: 1px solid #2a2a2a;
+            overflow: hidden;
+        }
+        .action-header {
+            padding: 12px 16px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            cursor: pointer;
+            user-select: none;
+            background: #0e1117;
+            transition: background 0.2s;
+        }
+        .action-header:active { background: #1a1e26; }
+        .action-title { font-size: 0.9rem; color: #b0b7bc; font-weight: bold; }
+        .action-toggle { 
+            color: #b0b7bc; 
+            font-size: 1rem; 
+            transition: transform 0.3s ease;
+        }
+        .action-toggle.open { transform: rotate(180deg); }
+        .action-buttons {
+            padding: 0 16px 16px 16px;
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 10px;
+            max-height: 0;
+            overflow: hidden;
+            transition: max-height 0.3s ease, padding 0.3s ease, opacity 0.2s ease;
+            opacity: 0;
+        }
+        .action-buttons.open {
+            max-height: 300px;
+            padding: 0 16px 16px 16px;
+            opacity: 1;
+        }
+        .action-buttons .game-btn {
+            margin: 0;
+        }
+        
+        .game-btn {
+            background: #1a1e26;
+            border: 2px solid #4a4a3a;
+            color: #e0c080;
+            padding: 10px 8px;
+            border-radius: 40px;
+            cursor: pointer;
+            font-family: monospace;
+            text-align: center;
+            font-size: 0.8rem;
+            transition: 0.1s;
+            font-weight: bold;
+        }
+        .game-btn:active { transform: scale(0.95); background: #2a2e36; }
+        .game-btn.danger { border-color: #6a3a2a; color: #d07a6a; }
+        .game-btn.knife { border-color: #6a3a3a; color: #d07a6a; background: #1a0e0e; }
+        .game-btn.full { grid-column: 1 / -1; }
+        
+        .knife-warning {
+            background: #1a0e0e;
+            border: 1px solid #6a3a3a;
+            border-radius: 12px;
+            padding: 8px;
+            margin-bottom: 10px;
+            text-align: center;
+            color: #d07a6a;
+            font-weight: bold;
+            font-size: 0.9rem;
+            display: none;
+        }
+        
+        .log {
+            background: #050608;
+            border-radius: 16px;
+            padding: 0.8rem;
+            height: 120px;
+            overflow-y: auto;
+            font-size: 0.75rem;
+            color: #7a7e8a;
+            border: 1px solid #1a1a1a;
+            margin-top: 0.5rem;
+        }
+        .log div { padding: 2px 0; }
+        .event-bad { color: #e08e6a; }
+        .event-good { color: #7eb07e; }
+        
+        .modal, .death-screen {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0,0,0,0.92);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 1000;
+            backdrop-filter: blur(6px);
+        }
+        .modal-content, .death-content {
+            background: #1a1e22;
+            border: 2px solid #6a5a3a;
+            border-radius: 28px;
+            padding: 2rem 1.5rem;
+            text-align: center;
+            max-width: 320px;
+            width: 90%;
+        }
+        .modal-content h2, .death-content h2 { color: #e0e0e0; margin-bottom: 12px; }
+        .modal-buttons { display: flex; gap: 12px; justify-content: center; margin-top: 16px; flex-wrap: wrap; }
+        .modal-btn, .death-btn {
+            background: #2a2a1a;
+            border: 1px solid #8a7a4a;
+            padding: 8px 20px;
+            border-radius: 30px;
+            cursor: pointer;
+            font-family: monospace;
+            color: #e0c080;
+            font-weight: bold;
+            min-width: 80px;
+        }
+        .modal-btn:active, .death-btn:active { transform: scale(0.95); }
+        
+        .red-flash { background-color: #3a0a0a !important; transition: background-color 0.05s; }
+        
+        .circle-popup {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            z-index: 999;
+            pointer-events: none;
+        }
+        .circle-target {
+            position: fixed;
+            width: 80px;
+            height: 80px;
+            border-radius: 50%;
+            background: rgba(140, 90, 60, 0.5);
+            border: 4px solid #b08050;
+            box-shadow: 0 0 60px rgba(176, 128, 80, 0.4);
+            pointer-events: auto;
+            cursor: pointer;
+            animation: pulse 0.6s ease-in-out infinite alternate;
+            transform: translate(-50%, -50%);
+        }
+        @keyframes pulse {
+            from { transform: translate(-50%, -50%) scale(0.9); opacity: 0.6; }
+            to { transform: translate(-50%, -50%) scale(1.1); opacity: 1; }
+        }
+        .circle-timer {
+            position: fixed;
+            bottom: 60px;
+            left: 50%;
+            transform: translateX(-50%);
+            color: #b08050;
+            font-size: 2rem;
+            font-family: monospace;
+            z-index: 1000;
+            background: rgba(0,0,0,0.85);
+            padding: 8px 24px;
+            border-radius: 30px;
+            border: 2px solid #b08050;
+        }
+        
+        .blue-circle-popup {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            z-index: 998;
+            pointer-events: none;
+        }
+        .blue-circle-target {
+            position: fixed;
+            width: 60px;
+            height: 60px;
+            border-radius: 50%;
+            background: rgba(60, 90, 140, 0.5);
+            border: 4px solid #5080b0;
+            box-shadow: 0 0 40px rgba(80, 128, 176, 0.4);
+            pointer-events: auto;
+            cursor: pointer;
+            animation: bluePulse 0.5s ease-in-out infinite alternate;
+            transform: translate(-50%, -50%);
+        }
+        @keyframes bluePulse {
+            from { transform: translate(-50%, -50%) scale(0.9); opacity: 0.7; }
+            to { transform: translate(-50%, -50%) scale(1.1); opacity: 1; }
+        }
+        .blue-circle-timer {
+            position: fixed;
+            bottom: 40px;
+            left: 50%;
+            transform: translateX(-50%);
+            color: #5080b0;
+            font-size: 1.5rem;
+            font-family: monospace;
+            z-index: 1000;
+            background: rgba(0,0,0,0.85);
+            padding: 6px 20px;
+            border-radius: 30px;
+            border: 2px solid #5080b0;
+        }
+        
+        footer {
+            font-size: 0.6rem;
+            text-align: center;
+            margin-top: 1rem;
+            color: #3a4a4a;
+        }
+        
+        @media (max-width: 480px) {
+            .game-container { padding: 1rem; }
+            .header h1 { font-size: 1.3rem; }
+            .stats-grid { gap: 6px; }
+            .stat-card .value { font-size: 1.2rem; }
+            .game-btn { font-size: 0.7rem; padding: 8px 6px; }
+            .circle-target { width: 60px; height: 60px; }
+            .blue-circle-target { width: 50px; height: 50px; }
+        }
+    </style>
+</head>
+<body>
+    <!-- 3D-фон -->
+    <div id="three-bg"></div>
+
+    <div class="game-container">
+        <div class="header">
+            <h1>🌊 <span>Серая Гладь</span></h1>
+            <div class="win-badge">🏆 Побед: <span id="winCount">0</span></div>
+        </div>
+
+        <div class="stats-grid">
+            <div class="stat-card">
+                <div class="label">📆 День</div>
+                <div class="value" id="dayCount">0</div>
+            </div>
+            <div class="stat-card">
+                <div class="label">🧠 Статус</div>
+                <div class="value good" id="statusText">Норма</div>
+            </div>
+        </div>
+
+        <div class="hp-container">
+            <div class="hp-label">
+                <span>❤️ Здоровье</span>
+                <span id="hpText">100</span>
+            </div>
+            <div class="hp-bar-bg">
+                <div class="hp-bar" id="hpBar" style="width: 100%"></div>
+            </div>
+        </div>
+
+        <div class="resources">
+            <div class="res-row"><span>🍗 Еда</span> <span class="res-value" id="food">0</span></div>
+            <div class="res-row"><span>💧 Вода</span> <span class="res-value" id="water">0</span></div>
+            <div class="res-row"><span>🥛 Миндальная вода</span> <span class="res-value" id="almond">0</span></div>
+            <div class="res-row"><span>🪵 Доски</span> <span class="res-value" id="planks">0</span></div>
+            <div class="res-row"><span>🧰 Трап</span> <span class="res-value" id="trap">0</span>%</div>
+        </div>
+
+        <div id="knifeWarning" class="knife-warning">🗡️ ПРОКЛЯТЫЙ НОЖ! -10 HP каждый день</div>
+
+        <div class="action-area">
+            <div class="action-header" id="actionHeader">
+                <span class="action-title">⚡ Действия</span>
+                <span class="action-toggle" id="actionToggle">▼</span>
+            </div>
+            <div class="action-buttons" id="actionButtons">
+                <div class="game-btn" id="drinkBtn">🥛 Мин. вода</div>
+                <div class="game-btn" id="repairBtn">🔧 Починить трап</div>
+                <div class="game-btn danger" id="discardKnifeBtn" style="display: none;">🗡️ Выкинуть нож</div>
+                <div class="game-btn danger" id="suicideBtn">💀 Уйти</div>
+            </div>
+        </div>
+
+        <div class="log" id="logArea">
+            <div>> Контейнер качается на волнах...</div>
+            <div>> Бочки приносят лут или отраву.</div>
+        </div>
+
+        <footer>⚫ Чёрная бочка: Красный час +10 дней · С 10 дня галлюцинации</footer>
+    </div>
+
+    <!-- Three.js CDN -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/loaders/GLTFLoader.js"></script>
+    <script>
+        // ===== 3D-ФОН (Three.js) =====
+        const scene = new THREE.Scene();
+        scene.background = new THREE.Color(0x1a2a3a);
+        
+        const camera = new THREE.PerspectiveCamera(45, window.innerWidth / window.innerHeight, 0.1, 1000);
+        camera.position.set(0, 2, 6);
+        camera.lookAt(0, 0, 0);
+        
+        const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
+        renderer.setSize(window.innerWidth, window.innerHeight);
+        renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+        document.getElementById('three-bg').appendChild(renderer.domElement);
+        
+        // Свет
+        const ambientLight = new THREE.AmbientLight(0x404060);
+        scene.add(ambientLight);
+        const dirLight = new THREE.DirectionalLight(0xffffff, 0.8);
+        dirLight.position.set(5, 10, 5);
+        scene.add(dirLight);
+        const backLight = new THREE.DirectionalLight(0x445566, 0.4);
+        backLight.position.set(-3, 0, -5);
+        scene.add(backLight);
+        
+        // ===== ЗАГРУЗКА ТВОЕЙ МОДЕЛИ =====
+        // Если файл container.glb лежит рядом — загрузится он, иначе создастся простой куб
+        const loader = new THREE.GLTFLoader();
+        loader.load(
+            'container.glb',
+            function (gltf) {
+                const model = gltf.scene;
+                model.scale.set(1, 1, 1);
+                model.position.set(0, 0.5, 0);
+                scene.add(model);
+                console.log('✅ Модель загружена!');
+            },
+            undefined,
+            function (error) {
+                console.warn('⚠️ Модель не загружена, создаём простой контейнер:', error);
+                // Создаём простой контейнер, если модель не загрузилась
+                const containerGeo = new THREE.BoxGeometry(2, 1, 1.5);
+                const containerMat = new THREE.MeshStandardMaterial({ 
+                    color: 0x6a5a4a, 
+                    roughness: 0.8, 
+                    metalness: 0.2 
+                });
+                const container = new THREE.Mesh(containerGeo, containerMat);
+                container.position.set(0, 0.5, 0);
+                scene.add(container);
+            }
+        );
+        
+        // Вода (плоскость с волнами)
+        const waterGeo = new THREE.PlaneGeometry(12, 12, 20, 20);
+        const waterMat = new THREE.MeshStandardMaterial({
+            color: 0x2a4a5a,
+            transparent: true,
+            opacity: 0.6,
+            roughness: 0.3,
+            metalness: 0.1,
+            wireframe: false
+        });
+        const water = new THREE.Mesh(waterGeo, waterMat);
+        water.rotation.x = -Math.PI / 2;
+        water.position.y = -0.1;
+        scene.add(water);
+        
+        // Туман
+        scene.fog = new THREE.FogExp2(0x1a2a3a, 0.08);
+        
+        // Анимация
+        function animate3D() {
+            requestAnimationFrame(animate3D);
+            
+            // Вращение контейнера
+            // (контейнер уже добавлен в сцену, вращаем его если он есть)
+            scene.children.forEach(child => {
+                if (child.isMesh || child.type === 'Group') {
+                    child.rotation.y += 0.002;
+                }
+            });
+            
+            // Анимация волн
+            const time = Date.now() * 0.001;
+            const positions = water.geometry.attributes.position.array;
+            for (let i = 0; i < positions.length; i += 3) {
+                const x = positions[i];
+                const z = positions[i + 2];
+                const y = Math.sin(x * 0.5 + time) * 0.1 + Math.cos(z * 0.3 + time * 0.7) * 0.1;
+                positions[i + 1] = y - 0.1;
+            }
+            water.geometry.attributes.position.needsUpdate = true;
+            
+            renderer.render(scene, camera);
+        }
+        animate3D();
+        
+        // Адаптация под размер окна
+        window.addEventListener('resize', () => {
+            camera.aspect = window.innerWidth / window.innerHeight;
+            camera.updateProjectionMatrix();
+            renderer.setSize(window.innerWidth, window.innerHeight);
+        });
+    </script>
+
+    <script>
+        // ===== ЛОГИКА ИГРЫ =====
+        let game = {
+            day: 0, food: 12, water: 12, almond: 2, planks: 0, trap: 80, hp: 100, hasKnife: false,
+            status: "normal", daysLeft: 90, over: false, won: false
+        };
+        let autoDayInterval = null;
+        let wins = parseInt(localStorage.getItem('greyWins') || '0');
+        let runStartTime = null;
+        let timerInterval = null;
+        let barrelTimer = null;
+        let hallucinationCircleInterval = null;
+        let activeCircle = null;
+        let activeBlueCircles = [];
+        let actionOpen = true;
+
+        const daySpan = document.getElementById('dayCount');
+        const statusSpan = document.getElementById('statusText');
+        const foodSpan = document.getElementById('food');
+        const waterSpan = document.getElementById('water');
+        const almondSpan = document.getElementById('almond');
+        const planksSpan = document.getElementById('planks');
+        const trapSpan = document.getElementById('trap');
+        const hpBar = document.getElementById('hpBar');
+        const hpText = document.getElementById('hpText');
+        const logDiv = document.getElementById('logArea');
+        const knifeWarning = document.getElementById('knifeWarning');
+        const discardBtn = document.getElementById('discardKnifeBtn');
+        const winCountSpan = document.getElementById('winCount');
+        const actionHeader = document.getElementById('actionHeader');
+        const actionButtons = document.getElementById('actionButtons');
+        const actionToggle = document.getElementById('actionToggle');
+
+        winCountSpan.innerText = wins;
+
+        actionHeader.addEventListener('click', () => {
+            actionOpen = !actionOpen;
+            actionButtons.classList.toggle('open', actionOpen);
+            actionToggle.classList.toggle('open', actionOpen);
+        });
+
+        setTimeout(() => {
+            actionButtons.classList.add('open');
+            actionToggle.classList.add('open');
+        }, 100);
+
+        function updateTimer() {
+            if (!runStartTime || game.over) return;
+            let elapsed = Math.floor((Date.now() - runStartTime) / 1000);
+            let hours = Math.floor(elapsed / 3600);
+            let minutes = Math.floor((elapsed % 3600) / 60);
+        }
+
+        function redFlash() {
+            document.body.classList.add('red-flash');
+            setTimeout(() => document.body.classList.remove('red-flash'), 300);
+        }
+
+        function addLog(msg, type = 'neutral') {
+            const p = document.createElement('div');
+            p.innerHTML = `> ${msg}`;
+            if (type === 'bad') p.classList.add('event-bad');
+            if (type === 'good') p.classList.add('event-good');
+            logDiv.appendChild(p);
+            p.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+            while (logDiv.children.length > 30) logDiv.removeChild(logDiv.children[0]);
+        }
+
+        function updateUI() {
+            daySpan.innerText = game.day;
+            foodSpan.innerText = Math.floor(game.food);
+            waterSpan.innerText = Math.floor(game.water);
+            almondSpan.innerText = Math.floor(game.almond);
+            planksSpan.innerText = Math.floor(game.planks);
+            trapSpan.innerText = Math.floor(game.trap);
+            let hpPercent = Math.max(0, game.hp);
+            hpBar.style.width = `${hpPercent}%`;
+            hpText.innerText = Math.floor(hpPercent);
+            statusSpan.innerText = game.status === 'normal' ? 'Норма' : '🌀 Галлюцинации';
+            statusSpan.className = 'value ' + (game.status === 'normal' ? 'good' : 'bad');
+            
+            if (game.hasKnife) {
+                knifeWarning.style.display = 'block';
+                discardBtn.style.display = 'block';
+            } else {
+                knifeWarning.style.display = 'none';
+                discardBtn.style.display = 'none';
+            }
+            if (game.hp <= 0 && !game.over) die();
+            saveGame();
+        }
+
+        function saveGame() {
+            const save = {
+                day: game.day, food: game.food, water: game.water, almond: game.almond,
+                planks: game.planks, trap: game.trap, hp: game.hp, hasKnife: game.hasKnife,
+                status: game.status, daysLeft: game.daysLeft, over: game.over, won: game.won,
+                runStartTime: runStartTime
+            };
+            localStorage.setItem('greySave', JSON.stringify(save));
+        }
+
+        function loadGame() {
+            const saved = localStorage.getItem('greySave');
+            if (saved) {
+                try {
+                    const data = JSON.parse(saved);
+                    game = { ...game, ...data };
+                    if (data.runStartTime) runStartTime = data.runStartTime;
+                    else runStartTime = Date.now();
+                    updateUI();
+                    addLog("Сохранение загружено.", "good");
+                    if (game.over && !game.won) showDeathScreen();
+                    else if (game.won) showWinScreen();
+                } catch(e) {}
+            } else {
+                runStartTime = Date.now();
+            }
+            if (timerInterval) clearInterval(timerInterval);
+            timerInterval = setInterval(updateTimer, 1000);
+        }
+
+        function showDeathScreen() {
+            if (document.querySelector('.death-screen')) return;
+            const div = document.createElement('div');
+            div.className = 'death-screen';
+            div.innerHTML = `<div class="death-content"><h2>💀 ВЫ ПОГИБЛИ</h2><p>Серая Гладь забрала ещё одного.</p><div class="death-btn" id="restartBtn">⟳ Начать заново</div></div>`;
+            document.body.appendChild(div);
+            document.getElementById('restartBtn').onclick = () => { resetGame(); div.remove(); };
+        }
+
+        function showWinScreen() {
+            wins++;
+            localStorage.setItem('greyWins', wins);
+            winCountSpan.innerText = wins;
+            if (document.querySelector('.death-screen')) return;
+            const div = document.createElement('div');
+            div.className = 'death-screen';
+            div.innerHTML = `<div class="death-content"><h2>✨ ВЫЖИЛ 90 ДНЕЙ</h2><p>Ты вырвался из Серой Глади.</p><div class="death-btn" id="restartBtn">⟳ Играть снова</div></div>`;
+            document.body.appendChild(div);
+            document.getElementById('restartBtn').onclick = () => { resetGame(); div.remove(); };
+        }
+
+        async function courtVerdict() {
+            addLog("⚖️ Суд оценивает твои поступки...", "neutral");
+            const rand = Math.random();
+            let extraDays = 0;
+            let resultText = "";
+            if (rand < 0.70) {
+                resultText = "Суд оправдал тебя. Выход разрешён.";
+                addLog(resultText, "good");
+                winGame();
+                return;
+            } else if (rand < 0.85) {
+                extraDays = 10;
+                resultText = "Суд признал виновным. +10 дней.";
+            } else if (rand < 0.95) {
+                extraDays = 20;
+                resultText = "Суд признал виновным. +20 дней.";
+            } else {
+                extraDays = 30;
+                resultText = "Суд признал ТЯЖКО виновным. +30 дней.";
+            }
+            addLog(resultText, "bad");
+            game.daysLeft += extraDays;
+            game.day = 0;
+            game.daysLeft = 90;
+            addLog(`Новый срок: ${game.daysLeft} дней.`, "neutral");
+            updateUI();
+            saveGame();
+        }
+
+        async function redHour(source) {
+            addLog(`⚠️ КРАСНЫЙ ЧАС! (${source})`, "bad");
+            redFlash();
+            if (Math.random() < 0.2) {
+                addLog("Ты не пережил Красный час...", "bad");
+                game.hp = 0;
+                updateUI();
+                die();
+                return true;
+            } else {
+                addLog("Ты выжил в Красный час, но силы на исходе.", "bad");
+                game.hp = Math.max(0, game.hp - 15);
+                updateUI();
+                return false;
+            }
+        }
+
+        function die() {
+            if (game.over) return;
+            game.over = true;
+            if (autoDayInterval) clearInterval(autoDayInterval);
+            if (timerInterval) clearInterval(timerInterval);
+            if (barrelTimer) clearInterval(barrelTimer);
+            if (hallucinationCircleInterval) clearInterval(hallucinationCircleInterval);
+            saveGame();
+            showDeathScreen();
+        }
+
+        function winGame() {
+            if (game.won) return;
+            game.won = true;
+            game.over = true;
+            if (autoDayInterval) clearInterval(autoDayInterval);
+            if (timerInterval) clearInterval(timerInterval);
+            if (barrelTimer) clearInterval(barrelTimer);
+            if (hallucinationCircleInterval) clearInterval(hallucinationCircleInterval);
+            saveGame();
+            showWinScreen();
+        }
+
+        function checkGameOver() {
+            if (game.over) return true;
+            if (game.day >= 90) { 
+                courtVerdict(); 
+                return true; 
+            }
+            if (game.hp <= 0) { die(); return true; }
+            if (game.food <= 0) { addLog("ГОЛОД. -10 HP", "bad"); game.hp -= 10; updateUI(); }
+            if (game.water <= 0) { addLog("ЖАЖДА. -10 HP", "bad"); game.hp -= 10; updateUI(); }
+            return false;
+        }
+
+        function openBarrel(isBlack) {
+            if (isBlack) {
+                addLog(`⚫ Чёрная бочка! +10 дней к сроку.`, "bad");
+                game.daysLeft += 10;
+                const rand = Math.random();
+                if (rand < 0.75) {
+                    redHour("Чёрная бочка");
+                } else {
+                    addLog("Тебе повезло — Красный час не наступил.", "good");
+                }
+                const randLoot = Math.random();
+                if (randLoot < 0.4) {
+                    game.almond += 3;
+                    addLog(`⚫ +3 миндальной воды!`, "good");
+                } else if (randLoot < 0.8) {
+                    game.food += 5; game.water += 5;
+                    addLog(`⚫ +5 еды, +5 воды.`, "good");
+                } else {
+                    game.almond += 5;
+                    addLog(`⚫ +5 миндальной воды!`, "good");
+                }
+            } else {
+                const rand = Math.random();
+                if (rand < 0.40) {
+                    let f = Math.floor(Math.random() * 3);
+                    let w = Math.floor(Math.random() * 3);
+                    game.food += f; game.water += w;
+                    addLog(`📦 +${f} еды, +${w} воды.`, "good");
+                } else if (rand < 0.70) {
+                    game.hp -= 5;
+                    addLog(`☠️ Отравленная еда! -5 HP.`, "bad");
+                } else if (rand < 0.85) {
+                    game.almond++;
+                    addLog(`🥛 +1 миндальная вода.`, "good");
+                } else if (rand < 0.98) {
+                    game.planks++;
+                    addLog(`🪵 +1 доска.`, "good");
+                } else {
+                    game.hasKnife = true;
+                    addLog(`🗡️ ПРОКЛЯТЫЙ НОЖ! Шёпот начинается.`, "bad");
+                }
+            }
+            updateUI();
+        }
+
+        async function trySpawnBarrel() {
+            if (game.over) return;
+            let isBlack = Math.random() < 0.05;
+            const modalDiv = document.createElement('div');
+            modalDiv.className = 'modal';
+            modalDiv.innerHTML = `<div class="modal-content"><h2>${isBlack ? '⚫ ЧЁРНАЯ БОЧКА' : '📦 Обычная бочка'}</h2><p>${isBlack ? 'Открыть? (Красный час +10 дней)' : 'Открыть?'}</p><div class="modal-buttons"><div class="modal-btn" id="modalYes">✅ Да</div><div class="modal-btn" id="modalNo">❌ Нет</div></div></div>`;
+            document.body.appendChild(modalDiv);
+            const choice = await new Promise(resolve => {
+                document.getElementById('modalYes').onclick = () => { modalDiv.remove(); resolve(true); };
+                document.getElementById('modalNo').onclick = () => { modalDiv.remove(); resolve(false); };
+            });
+            if (choice) {
+                openBarrel(isBlack);
+            } else {
+                addLog("Ты проплыл мимо бочки.", "neutral");
+            }
+            saveGame();
+            checkGameOver();
+        }
+
+        function drinkAlmond() {
+            if (game.over) return;
+            if (game.almond <= 0) { addLog("Нет миндальной воды.", "bad"); return; }
+            game.almond--;
+            if (game.status === 'hallucinations') game.status = 'normal';
+            game.hp = Math.min(100, game.hp + 5);
+            addLog("🥛 Миндальная вода восстановила +5 HP.", "good");
+            updateUI();
+            saveGame();
+        }
+
+        function spawnBlueCircles() {
+            if (game.over) return;
+            if (game.planks < 1) {
+                addLog("Нужна 1 доска.", "bad");
+                return;
+            }
+            game.planks--;
+            const circleCount = 4;
+            let clicked = 0;
+            let timerActive = true;
+            
+            for (let i = 0; i < circleCount; i++) {
+                const margin = 80;
+                const randomX = Math.random() * (window.innerWidth - margin * 2) + margin;
+                const randomY = Math.random() * (window.innerHeight - margin * 2) + margin;
+                
+                const popup = document.createElement('div');
+                popup.className = 'blue-circle-popup';
+                popup.innerHTML = `
+                    <div class="blue-circle-target" id="blueCircle${i}" style="left: ${randomX}px; top: ${randomY}px;"></div>
+                `;
+                document.body.appendChild(popup);
+                activeBlueCircles.push(popup);
+                
+                const target = document.getElementById(`blueCircle${i}`);
+                target.onclick = () => {
+                    if (!timerActive) return;
+                    clicked++;
+                    target.style.display = 'none';
+                    addLog(`🔵 Нажал на синий кружок! (${clicked}/4)`, "good");
+                    if (clicked === circleCount) {
+                        timerActive = false;
+                        const repairAmount = 20;
+                        game.trap = Math.min(100, game.trap + repairAmount);
+                        addLog(`🔧 Трап починен! +${repairAmount}% (${Math.floor(game.trap)}%)`, "good");
+                        activeBlueCircles.forEach(el => {
+                            if (el.parentNode) document.body.removeChild(el);
+                        });
+                        activeBlueCircles = [];
+                        updateUI();
+                        saveGame();
+                    }
+                };
+            }
+            
+            setTimeout(() => {
+                if (!timerActive) return;
+                timerActive = false;
+                activeBlueCircles.forEach(el => {
+                    if (el.parentNode) document.body.removeChild(el);
+                });
+                activeBlueCircles = [];
+                
+                if (clicked > 0) {
+                    const repairAmount = clicked * 5;
+                    game.trap = Math.min(100, game.trap + repairAmount);
+                    addLog(`🔧 Трап починен! +${repairAmount}% (${Math.floor(game.trap)}%)`, "good");
+                    if (clicked < 4) {
+                        addLog(`⚠️ Нажато ${clicked}/4 кружков. Если бы нажал все — получил бы +20%`, "neutral");
+                    }
+                } else {
+                    addLog(`❌ Ты не нажал ни на один кружок! Доска потрачена зря.`, "bad");
+                }
+                updateUI();
+                saveGame();
+            }, 2000);
+        }
+
+        function repairTrap() {
+            spawnBlueCircles();
+        }
+
+        async function discardKnife() {
+            if (!game.hasKnife || game.over) return;
+            if (await redHour("Выбрасывание ножа")) return;
+            game.hasKnife = false;
+            addLog("Ты выбросил проклятый нож. Шёпот стих.", "good");
+            updateUI();
+            saveGame();
+        }
+
+        function suicide() {
+            if (game.over) return;
+            addLog("Ты решил уйти. Конец.", "bad");
+            game.hp = 0;
+            updateUI();
+            die();
+        }
+
+        function knifeDamage() {
+            if (game.hasKnife && !game.over) {
+                game.hp -= 10;
+                addLog("🗡️ Проклятый нож -10 HP.", "bad");
+                updateUI();
+            }
+        }
+
+        function consumeResources() {
+            game.food = Math.max(0, game.food - 1);
+            game.water = Math.max(0, game.water - 1);
+        }
+
+        function degradeTrap() {
+            let degrade = 10 + Math.random() * 10;
+            game.trap = Math.max(0, game.trap - degrade);
+            if (game.trap <= 0 && !game.over && game.day > 0) addLog("Трап разрушен!", "bad");
+        }
+
+        function trapFallRisk() {
+            if (game.trap <= 0 && Math.random() < 0.25) {
+                game.hp -= 5;
+                addLog("Трап сломан! Ты упал в воду. -5 HP", "bad");
+                updateUI();
+            }
+        }
+
+        function spawnHallucinationCircle() {
+            if (game.over || game.won) return;
+            if (game.status !== 'hallucinations') return;
+            if (activeCircle) return;
+
+            const margin = 80;
+            const randomX = Math.random() * (window.innerWidth - margin * 2) + margin;
+            const randomY = Math.random() * (window.innerHeight - margin * 2) + margin;
+
+            const popup = document.createElement('div');
+            popup.className = 'circle-popup';
+            popup.innerHTML = `
+                <div class="circle-target" id="circleTarget" style="left: ${randomX}px; top: ${randomY}px;"></div>
+                <div class="circle-timer" id="circleTimer">2.0</div>
+            `;
+            document.body.appendChild(popup);
+            activeCircle = popup;
+
+            let timeLeft = 2.0;
+            const timerSpan = document.getElementById('circleTimer');
+            const target = document.getElementById('circleTarget');
+
+            const timerInterval = setInterval(() => {
+                timeLeft -= 0.1;
+                if (timerSpan) timerSpan.innerText = timeLeft.toFixed(1);
+                if (timeLeft <= 0) {
+                    clearInterval(timerInterval);
+                    if (activeCircle) {
+                        game.hp -= 5;
+                        addLog("🌀 Ты не нашёл кружок! -5 HP", "bad");
+                        updateUI();
+                        document.body.removeChild(activeCircle);
+                        activeCircle = null;
+                        if (game.hp <= 0) die();
+                    }
+                }
+            }, 100);
+
+            target.onclick = () => {
+                if (!activeCircle) return;
+                clearInterval(timerInterval);
+                addLog("✅ Ты нажал на кружок! Галлюцинация отступила.", "good");
+                document.body.removeChild(activeCircle);
+                activeCircle = null;
+            };
+        }
+
+        function startHallucinationCircles() {
+            if (hallucinationCircleInterval) clearInterval(hallucinationCircleInterval);
+            hallucinationCircleInterval = setInterval(() => {
+                if (game.status === 'hallucinations' && !game.over && !game.won) {
+                    if (Math.random() < 0.5) {
+                        spawnHallucinationCircle();
+                    }
+                }
+            }, 5000);
+        }
+
+        function startBarrelTimer() {
+            if (barrelTimer) clearInterval(barrelTimer);
+            barrelTimer = setInterval(() => {
+                if (!game.over && !game.won) {
+                    trySpawnBarrel();
+                }
+            }, 60000);
+        }
+
+        async function nextDay() {
+            if (game.over || game.won) return;
+            game.day++;
+            consumeResources();
+            degradeTrap();
+            trapFallRisk();
+            knifeDamage();
+            
+            if (game.day >= 10 && game.status === 'normal' && Math.random() < 0.25) {
+                game.status = 'hallucinations';
+                addLog("🌫️ Шёпот... Галлюцинации начались.", "bad");
+                startHallucinationCircles();
+            }
+            
+            updateUI();
+            checkGameOver();
+            if (!game.over && game.day % 5 === 0) addLog("В тумане мелькают силуэты...", "neutral");
+        }
+
+        function resetGame() {
+            if (autoDayInterval) clearInterval(autoDayInterval);
+            if (timerInterval) clearInterval(timerInterval);
+            if (barrelTimer) clearInterval(barrelTimer);
+            if (hallucinationCircleInterval) clearInterval(hallucinationCircleInterval);
+            if (activeCircle) {
+                document.body.removeChild(activeCircle);
+                activeCircle = null;
+            }
+            activeBlueCircles.forEach(el => {
+                if (el.parentNode) document.body.removeChild(el);
+            });
+            activeBlueCircles = [];
+            
+            game = {
+                day: 0, food: 12, water: 12, almond: 2, planks: 0, trap: 80, hp: 100, hasKnife: false,
+                status: "normal", daysLeft: 90, over: false, won: false
+            };
+            runStartTime = Date.now();
+            updateUI();
+            localStorage.removeItem('greySave');
+            
+            autoDayInterval = setInterval(() => { if (!game.over && !game.won && game.day < 90) nextDay(); }, 120000);
+            timerInterval = setInterval(updateTimer, 1000);
+            startBarrelTimer();
+            
+            addLog("Игра перезапущена.", "good");
+        }
+
+        document.getElementById('drinkBtn').onclick = drinkAlmond;
+        document.getElementById('repairBtn').onclick = repairTrap;
+        document.getElementById('discardKnifeBtn').onclick = discardKnife;
+        document.getElementById('suicideBtn').onclick = suicide;
+
+        function startGame() {
+            loadGame();
+            if (!game.over && !game.won && !autoDayInterval) {
+                autoDayInterval = setInterval(() => { if (!game.over && !game.won && game.day < 90) nextDay(); }, 120000);
+            }
+            if (!timerInterval) timerInterval = setInterval(updateTimer, 1000);
+            startBarrelTimer();
+            if (game.status === 'hallucinations') {
+                startHallucinationCircles();
+            }
+        }
+        startGame();
+    </script>
+</body>
+</html>
